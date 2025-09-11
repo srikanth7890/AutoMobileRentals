@@ -19,14 +19,12 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle,
-  XCircle,
   X,
   MapPin,
   Fuel,
   Settings
 } from 'lucide-react';
 import { bookingAPI, vehicleAPI, adminBookingAPI, adminVehicleAPI, adminCustomerAPI } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -54,13 +52,12 @@ const AdminDashboard = () => {
   const handleSubmit = async (e, isEdit = false) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData.entries());
     
     try {
       if (isEdit && editingVehicle) {
         await updateVehicleMutation.mutateAsync({
           id: editingVehicle.id,
-          data: data
+          data: formData
         });
       }
     } catch (error) {

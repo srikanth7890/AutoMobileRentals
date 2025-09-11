@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAdminUser
 from django.db.models import Q, Count, Sum, Avg
 from django.contrib.auth import get_user_model
 from .models import User
-from .serializers import UserProfileSerializer, UserUpdateSerializer
+from .serializers import UserProfileSerializer, UserUpdateSerializer, AdminCustomerCreateSerializer
 from bookings.models import Booking
 
 
@@ -20,6 +20,22 @@ class AdminCustomerListView(generics.ListAPIView):
     search_fields = ['username', 'email', 'first_name', 'last_name', 'phone_number']
     ordering_fields = ['created_at', 'username', 'email']
     ordering = ['-created_at']
+
+
+class AdminCustomerCreateView(generics.CreateAPIView):
+    """Admin view to create new customers."""
+    queryset = User.objects.filter(role='customer')
+    serializer_class = AdminCustomerCreateSerializer
+    permission_classes = [IsAdminUser]
+    
+    def create(self, request, *args, **kwargs):
+        # Ensure the user is created as a customer
+        data = request.data.copy()
+        data['role'] = 'customer'
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(UserProfileSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
 class AdminCustomerDetailView(generics.RetrieveUpdateAPIView):

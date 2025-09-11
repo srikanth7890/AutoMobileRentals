@@ -79,9 +79,41 @@ export const bookingAPI = {
 export const adminVehicleAPI = {
   // Vehicle Management
   getVehicles: (params) => api.get('/vehicles/admin/', { params }).then(res => res.data),
-  createVehicle: (vehicleData) => api.post('/vehicles/admin/', vehicleData).then(res => res.data),
+  createVehicle: (vehicleData) => {
+    // Create a new axios instance for FormData requests
+    const formDataApi = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    
+    // Add auth token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      formDataApi.defaults.headers.Authorization = `Token ${token}`;
+    }
+    
+    return formDataApi.post('/vehicles/admin/', vehicleData).then(res => res.data);
+  },
   getVehicle: (id) => api.get(`/vehicles/admin/${id}/`).then(res => res.data),
-  updateVehicle: (id, vehicleData) => api.put(`/vehicles/admin/${id}/`, vehicleData).then(res => res.data),
+  updateVehicle: (id, vehicleData) => {
+    // Create a new axios instance for FormData requests
+    const formDataApi = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    
+    // Add auth token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      formDataApi.defaults.headers.Authorization = `Token ${token}`;
+    }
+    
+    return formDataApi.put(`/vehicles/admin/${id}/`, vehicleData).then(res => res.data);
+  },
   deleteVehicle: (id) => api.delete(`/vehicles/admin/${id}/`).then(res => res.data),
   
   // Categories
@@ -95,6 +127,9 @@ export const adminVehicleAPI = {
   // Analytics
   getAnalytics: (params) => api.get('/vehicles/admin/analytics/', { params }).then(res => res.data),
   
+  // Export
+  exportVehicles: (params) => api.get('/vehicles/admin/export/', { params, responseType: 'blob' }).then(res => res.data),
+  
   // Bulk Operations
   bulkOperations: (operationData) => api.post('/vehicles/admin/bulk-operations/', operationData).then(res => res.data),
 };
@@ -104,6 +139,7 @@ export const adminBookingAPI = {
   // Booking Management
   getAllBookings: (params) => api.get('/bookings/admin/all/', { params }).then(res => res.data),
   getBooking: (id) => api.get(`/bookings/admin/${id}/`).then(res => res.data),
+  createBooking: (bookingData) => api.post('/bookings/admin/create/', bookingData).then(res => res.data),
   updateBooking: (id, bookingData) => api.put(`/bookings/admin/${id}/`, bookingData).then(res => res.data),
   
   // Analytics
@@ -111,6 +147,12 @@ export const adminBookingAPI = {
   
   // Bulk Operations
   bulkOperations: (operationData) => api.post('/bookings/admin/bulk-operations/', operationData).then(res => res.data),
+  
+  // Export/Import
+  exportBookings: (params) => api.get('/bookings/admin/export/', { params, responseType: 'blob' }).then(res => res.data),
+  importBookings: (formData) => api.post('/bookings/admin/import/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }).then(res => res.data),
   
   // Financial Reports
   getFinancialOverview: (params) => api.get('/bookings/admin/financial/overview/', { params }).then(res => res.data),
@@ -130,6 +172,7 @@ export const adminCustomerAPI = {
   // Customer Management
   getCustomers: (params) => api.get('/auth/admin/customers/', { params }).then(res => res.data),
   getCustomer: (id) => api.get(`/auth/admin/customers/${id}/`).then(res => res.data),
+  createCustomer: (customerData) => api.post('/auth/admin/customers/create/', customerData).then(res => res.data),
   updateCustomer: (id, customerData) => api.put(`/auth/admin/customers/${id}/`, customerData).then(res => res.data),
   
   // Analytics

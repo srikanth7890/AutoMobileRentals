@@ -4,6 +4,7 @@ from . import admin_views
 urlpatterns = [
     # Customer management
     path('admin/customers/', admin_views.AdminCustomerListView.as_view(), name='admin-customer-list'),
+    path('admin/customers/create/', admin_views.AdminCustomerCreateView.as_view(), name='admin-customer-create'),
     path('admin/customers/<int:pk>/', admin_views.AdminCustomerDetailView.as_view(), name='admin-customer-detail'),
     path('admin/customers/analytics/', admin_views.customer_analytics, name='admin-customer-analytics'),
     path('admin/customers/<int:customer_id>/analytics/', admin_views.customer_detail_analytics, name='admin-customer-detail-analytics'),

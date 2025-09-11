@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.core.validators import MinValueValidator, MaxValueValidator
 from .models import Vehicle, VehicleCategory, VehicleBrand, VehicleImage
 
 
@@ -70,11 +71,15 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
 class VehicleCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializer for creating and updating vehicles (admin only)."""
     images = VehicleImageSerializer(many=True, required=False)
+    seating_capacity = serializers.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        help_text="Seating capacity must be between 1 and 10"
+    )
     
     class Meta:
         model = Vehicle
         fields = [
-            'name', 'brand', 'category', 'model_year', 'fuel_type',
+            'id', 'name', 'brand', 'category', 'model_year', 'fuel_type',
             'transmission', 'engine_capacity', 'seating_capacity', 'mileage',
             'daily_rate', 'weekly_rate', 'monthly_rate', 'location', 'status',
             'description', 'features', 'insurance_valid_until', 'registration_number',

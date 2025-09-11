@@ -54,7 +54,11 @@ class Vehicle(models.Model):
     fuel_type = models.CharField(max_length=20, choices=FUEL_TYPE_CHOICES)
     transmission = models.CharField(max_length=20, choices=TRANSMISSION_CHOICES)
     engine_capacity = models.CharField(max_length=20, blank=True)  # e.g., "1.5L", "150cc"
-    seating_capacity = models.PositiveIntegerField(default=4)
+    seating_capacity = models.PositiveIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        help_text="Seating capacity must be between 1 and 10"
+    )
     mileage = models.CharField(max_length=20, blank=True)  # e.g., "15 kmpl"
     
     # Rental Information

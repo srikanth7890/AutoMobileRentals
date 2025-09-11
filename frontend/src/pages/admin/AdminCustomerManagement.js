@@ -9,14 +9,11 @@ import {
   Eye, 
   Download,
   Upload,
-  MoreHorizontal,
   User,
   Mail,
   Phone,
   Calendar,
   DollarSign,
-  MapPin,
-  Star,
   X
 } from 'lucide-react';
 import { adminCustomerAPI } from '../../services/api';
@@ -26,7 +23,6 @@ const AdminCustomerManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedCustomers, setSelectedCustomers] = useState([]);
-  const [showBulkActions, setShowBulkActions] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -47,6 +43,17 @@ const AdminCustomerManagement = () => {
   // Ensure customers data is properly structured
   const customers = customersData || { results: [], count: 0 };
 
+  // Create customer mutation
+  const createCustomerMutation = useMutation(
+    (data) => adminCustomerAPI.createCustomer(data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('admin-customers');
+        setShowAddModal(false);
+      },
+    }
+  );
+
   // Delete customer mutation
   const deleteCustomerMutation = useMutation(
     (id) => adminCustomerAPI.updateCustomer(id, { is_active: false }),
@@ -64,7 +71,6 @@ const AdminCustomerManagement = () => {
       onSuccess: () => {
         queryClient.invalidateQueries('admin-customers');
         setSelectedCustomers([]);
-        setShowBulkActions(false);
       },
     }
   );
@@ -85,10 +91,17 @@ const AdminCustomerManagement = () => {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
     
-    // Convert is_active to boolean
-    if (data.is_active) {
+    // Convert is_active to boolean for edit operations
+    if (isEdit && data.is_active) {
       data.is_active = data.is_active === 'active';
     }
+    
+    // Validate password length for new customers
+    if (!isEdit && data.password && data.password.length < 8) {
+      alert('Password must be at least 8 characters long');
+      return;
+    }
+    
     
     try {
       if (isEdit && editingCustomer) {
@@ -98,9 +111,27 @@ const AdminCustomerManagement = () => {
         });
         setShowEditModal(false);
         setEditingCustomer(null);
+      } else {
+        // Create new customer
+        await createCustomerMutation.mutateAsync(data);
       }
     } catch (error) {
-      console.error('Error updating customer:', error);
+      console.error('Error saving customer:', error);
+      console.error('Error details:', error.response?.data);
+      
+      // Show user-friendly error message
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (errorData.password) {
+          alert(`Password error: ${errorData.password[0]}`);
+        } else if (errorData.email) {
+          alert(`Email error: ${errorData.email[0]}`);
+        } else if (errorData.username) {
+          alert(`Username error: ${errorData.username[0]}`);
+        } else {
+          alert('Error creating customer. Please check all fields.');
+        }
+      }
     }
   };
 
@@ -128,6 +159,30 @@ const AdminCustomerManagement = () => {
       action,
       customer_ids: selectedCustomers
     });
+  };
+
+
+  // Handle export
+  const handleExport = async () => {
+    try {
+      const response = await adminCustomerAPI.exportCustomers({
+        search: searchTerm,
+        status: statusFilter !== 'all' ? statusFilter : undefined
+      });
+      
+      // Create blob and download
+      const blob = new Blob([response], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'customers_export.csv';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error exporting customers:', error);
+    }
   };
 
   const formatPrice = (price) => {
@@ -167,7 +222,10 @@ const AdminCustomerManagement = () => {
           <p className="text-dark-300">Manage your customer base</p>
         </div>
         <div className="flex space-x-2">
-          <button className="btn btn-secondary">
+          <button 
+            onClick={handleExport}
+            className="btn btn-secondary"
+          >
             <Download className="h-4 w-4 mr-2" />
             Export
           </button>
@@ -628,6 +686,142 @@ const AdminCustomerManagement = () => {
                   className="btn btn-primary"
                 >
                   Update Customer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Customer Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-dark-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-white">Add New Customer</h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-dark-400 hover:text-white"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    Username *
+                  </label>
+                  <input
+                    type="text"
+                    name="username"
+                    required
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="first_name"
+                    required
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    Last Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="last_name"
+                    required
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone_number"
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    name="date_of_birth"
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    Driving License
+                  </label>
+                  <input
+                    type="text"
+                    name="driving_license"
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    Password * (min 8 characters)
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    required
+                    minLength="8"
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-dark-300 text-sm font-medium mb-2">
+                  Address
+                </label>
+                <textarea
+                  name="address"
+                  rows={3}
+                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={createCustomerMutation.isLoading}
+                >
+                  {createCustomerMutation.isLoading ? 'Creating...' : 'Create Customer'}
                 </button>
               </div>
             </form>

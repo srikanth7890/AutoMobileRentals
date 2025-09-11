@@ -33,6 +33,9 @@ const AdminBookingManagement = () => {
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [viewingBooking, setViewingBooking] = useState(null);
   const [editingBooking, setEditingBooking] = useState(null);
 
@@ -50,6 +53,17 @@ const AdminBookingManagement = () => {
   
   // Ensure bookings data is properly structured
   const bookings = bookingsData || { results: [], count: 0 };
+
+  // Create booking mutation
+  const createBookingMutation = useMutation(
+    (data) => adminBookingAPI.createBooking(data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('admin-bookings');
+        setShowAddModal(false);
+      },
+    }
+  );
 
   // Update booking mutation
   const updateBookingMutation = useMutation(
@@ -87,9 +101,55 @@ const AdminBookingManagement = () => {
         });
         setShowEditModal(false);
         setEditingBooking(null);
+      } else {
+        await createBookingMutation.mutateAsync(data);
       }
     } catch (error) {
-      console.error('Error updating booking:', error);
+      console.error('Error saving booking:', error);
+    }
+  };
+
+  // Handle export
+  const handleExport = async () => {
+    try {
+      const response = await adminBookingAPI.exportBookings({
+        search: searchTerm,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        date: dateFilter !== 'all' ? dateFilter : undefined
+      });
+      
+      // Create download link
+      const blob = new Blob([response], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bookings-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting bookings:', error);
+      alert('Failed to export bookings. Please try again.');
+    }
+  };
+
+  // Handle import
+  const handleImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      await adminBookingAPI.importBookings(formData);
+      queryClient.invalidateQueries('admin-bookings');
+      setShowImportModal(false);
+      alert('Bookings imported successfully!');
+    } catch (error) {
+      console.error('Error importing bookings:', error);
+      alert('Failed to import bookings. Please check the file format.');
     }
   };
 
@@ -178,11 +238,11 @@ const AdminBookingManagement = () => {
           <p className="text-dark-300">Manage all vehicle bookings</p>
         </div>
         <div className="flex space-x-2">
-          <button className="btn btn-secondary">
+          <button onClick={handleExport} className="btn btn-secondary">
             <Download className="h-4 w-4 mr-2" />
             Export
           </button>
-          <button className="btn btn-primary">
+          <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
             <Plus className="h-4 w-4 mr-2" />
             New Booking
           </button>
@@ -229,11 +289,11 @@ const AdminBookingManagement = () => {
           </select>
 
           <div className="flex space-x-2">
-            <button className="btn btn-secondary">
+            <button onClick={() => setShowFiltersModal(true)} className="btn btn-secondary">
               <Filter className="h-4 w-4 mr-2" />
               More Filters
             </button>
-            <button className="btn btn-secondary">
+            <button onClick={() => setShowImportModal(true)} className="btn btn-secondary">
               <Upload className="h-4 w-4 mr-2" />
               Import
             </button>
@@ -735,6 +795,260 @@ const AdminBookingManagement = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Booking Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-dark-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-white">Add New Booking</h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-dark-300 hover:text-white"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <form className="space-y-6" onSubmit={(e) => handleSubmit(e, false)}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    Customer Email *
+                  </label>
+                  <input
+                    type="email"
+                    name="customer_email"
+                    required
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    Vehicle ID *
+                  </label>
+                  <input
+                    type="number"
+                    name="vehicle_id"
+                    required
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    Start Date *
+                  </label>
+                  <input
+                    type="date"
+                    name="start_date"
+                    required
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    End Date *
+                  </label>
+                  <input
+                    type="date"
+                    name="end_date"
+                    required
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    Total Amount *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="total_amount"
+                    required
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-dark-300 text-sm font-medium mb-2">
+                    Status
+                  </label>
+                  <select
+                    name="status"
+                    defaultValue="pending"
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-dark-300 text-sm font-medium mb-2">
+                  Special Instructions
+                </label>
+                <textarea
+                  name="special_instructions"
+                  rows={4}
+                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={createBookingMutation.isLoading}
+                >
+                  {createBookingMutation.isLoading ? 'Creating...' : 'Create Booking'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* More Filters Modal */}
+      {showFiltersModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-dark-800 rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-white">Advanced Filters</h2>
+              <button
+                onClick={() => setShowFiltersModal(false)}
+                className="text-dark-300 hover:text-white"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-dark-300 text-sm font-medium mb-2">
+                  Amount Range
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    placeholder="Min Amount"
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max Amount"
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-dark-300 text-sm font-medium mb-2">
+                  Vehicle Category
+                </label>
+                <select className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+                  <option value="">All Categories</option>
+                  <option value="sedan">Sedan</option>
+                  <option value="suv">SUV</option>
+                  <option value="hatchback">Hatchback</option>
+                  <option value="electric">Electric</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-dark-300 text-sm font-medium mb-2">
+                  Payment Status
+                </label>
+                <select className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+                  <option value="">All Payment Statuses</option>
+                  <option value="paid">Paid</option>
+                  <option value="pending">Pending</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowFiltersModal(false)}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setShowFiltersModal(false)}
+                className="btn btn-primary"
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-dark-800 rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-white">Import Bookings</h2>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="text-dark-300 hover:text-white"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-dark-600 rounded-lg p-6 text-center">
+                <Upload className="h-12 w-12 text-dark-400 mx-auto mb-4" />
+                <p className="text-dark-300 mb-2">Upload CSV file with booking data</p>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleImport}
+                  className="hidden"
+                  id="import-file"
+                />
+                <label
+                  htmlFor="import-file"
+                  className="btn btn-primary cursor-pointer"
+                >
+                  Choose File
+                </label>
+              </div>
+              
+              <div className="text-sm text-dark-400">
+                <p className="font-medium mb-2">CSV Format Requirements:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>customer_email, vehicle_id, start_date, end_date, total_amount</li>
+                  <li>Dates in YYYY-MM-DD format</li>
+                  <li>Amount as decimal number</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
